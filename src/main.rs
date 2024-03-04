@@ -4,7 +4,7 @@
 use core::mem::MaybeUninit;
 
 use bsp::entry;
-use defmt::*;
+use defmt::{info, warn, error};
 use defmt_rtt as _;
 use panic_probe as _;
 
@@ -59,6 +59,8 @@ impl State {
 fn main() -> ! {
     let mut pac = pac::Peripherals::take().unwrap();
     let mut watchdog = Watchdog::new(pac.WATCHDOG);
+
+    defmt::timestamp!("{=u32}", unsafe { &*pac::TIMER::PTR }.timerawl.read().bits());
 
     let external_xtal_freq_hz = 12_000_000u32;
     let clocks = init_clocks_and_plls(
@@ -175,15 +177,15 @@ fn process_command(
         },
         ScsiCommand::ReadCapacity10 { .. } => {
             let mut data = [0u8; 8];
-            let _ = &mut data[0..4].copy_from_slice(&u32::to_be_bytes(BLOCKS - 1));
-            let _ = &mut data[4..8].copy_from_slice(&u32::to_be_bytes(BLOCK_SIZE));
+            let _ = &mut data[0..4].copy_from_slice(&(BLOCKS - 1).to_be_bytes());
+            let _ = &mut data[4..8].copy_from_slice(&BLOCK_SIZE.to_be_bytes());
             command.try_write_data_all(&data)?;
             command.pass();
         }
         ScsiCommand::ReadCapacity16 { .. } => {
             let mut data = [0u8; 16];
-            let _ = &mut data[0..8].copy_from_slice(&u32::to_be_bytes(BLOCKS - 1));
-            let _ = &mut data[8..12].copy_from_slice(&u32::to_be_bytes(BLOCK_SIZE));
+            let _ = &mut data[0..8].copy_from_slice(&(BLOCKS - 1).to_be_bytes());
+            let _ = &mut data[8..12].copy_from_slice(&BLOCK_SIZE.to_be_bytes());
             command.try_write_data_all(&data)?;
             command.pass();
         }
@@ -192,9 +194,9 @@ fn process_command(
             let _ = &mut data[0..4].copy_from_slice(&[
                 0x00, 0x00, 0x00, 0x08, // capacity list length
             ]);
-            let _ = &mut data[4..8].copy_from_slice(&u32::to_be_bytes(BLOCKS as u32)); // number of blocks
+            let _ = &mut data[4..8].copy_from_slice(&(BLOCKS as u32).to_be_bytes()); // number of blocks
             data[8] = 0x01; //unformatted media
-            let block_length_be = u32::to_be_bytes(BLOCK_SIZE);
+            let block_length_be = BLOCK_SIZE.to_be_bytes();
             data[9] = block_length_be[1];
             data[10] = block_length_be[2];
             data[11] = block_length_be[3];
@@ -203,7 +205,7 @@ fn process_command(
             command.pass();
         }
         ScsiCommand::Read { lba, len } => unsafe {
-            let lba = lba as u32;
+            let lba = lba as u32; // u64 -> u32
             let len = len as u32;
             if STATE.storage_offset != (len * BLOCK_SIZE) as usize {
                 let start = (BLOCK_SIZE * lba) as usize + STATE.storage_offset;
