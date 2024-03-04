@@ -105,6 +105,8 @@ fn main() -> ! {
         .self_powered(false)
         .build();
 
+    ch_flags::hacky_set();
+
     loop {
         if !usb_device.poll(&mut [&mut scsi]) {
             continue;
@@ -122,6 +124,52 @@ fn main() -> ! {
                 error!("{}", err);
             }
         });
+    }
+}
+
+mod ch_flags {
+    use core::sync::atomic::{AtomicUsize, Ordering};
+
+    #[repr(C)]
+    struct Channel {
+        pub name: *const u8,
+        pub buffer: *mut u8,
+        pub size: usize,
+        pub write: AtomicUsize,
+        pub read: AtomicUsize,
+        pub flags: AtomicUsize,
+    }
+
+    #[repr(C)]
+    struct Header {
+        id: [u8; 16],
+        max_up_channels: usize,
+        max_down_channels: usize,
+        up_channel: Channel,
+    }
+
+    extern "C" {
+        static mut _SEGGER_RTT: Header;
+    }
+
+    //const MODE_MASK: usize = 0b11;
+    const MODE_BLOCK_IF_FULL: usize = 2;
+    //const MODE_NON_BLOCKING_TRIM: usize = 1;
+
+    pub fn hacky_set() {
+        unsafe {
+            let p = &_SEGGER_RTT.up_channel.flags;
+
+            p.store(p.load(Ordering::Relaxed) & !MODE_BLOCK_IF_FULL, Ordering::Relaxed);
+            super::warn!("hack'd the channel bit");
+        }
+    }
+
+    pub fn get() -> usize {
+        unsafe {
+            let p = &_SEGGER_RTT.up_channel.flags;
+            p.load(Ordering::Relaxed)
+        }
     }
 }
 
@@ -228,7 +276,12 @@ fn process_command(
             if STATE.storage_offset != (len * BLOCK_SIZE) as usize {
                 let start = (BLOCK_SIZE * lba) as usize + STATE.storage_offset;
                 let end = (BLOCK_SIZE * lba) as usize + (BLOCK_SIZE * len) as usize;
-                info!("Data transfer <<<<<<<< [{}..{}]", start, end);
+                info!(
+                    "Data transfer <<<<<<<< [{}..{}] (flag={:x})",
+                    start,
+                    end,
+                    ch_flags::get(),
+                );
                 let count = command.read_data(&mut STORAGE[start..end])?;
                 STATE.storage_offset += count;
 
