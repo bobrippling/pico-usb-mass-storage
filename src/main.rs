@@ -140,12 +140,54 @@ mod ch_flags {
         pub flags: AtomicUsize,
     }
 
+    impl defmt::Format for Channel {
+        fn format(&self, fmt: defmt::Formatter<'_>) {
+            use defmt::write;
+
+            write!(
+                fmt,
+                "Channel {{
+                    name: {:?},
+                    buffer: ...,
+                    size: {},
+                    write: {},
+                    read: {},
+                    flags: {},
+                }}",
+                self.name,
+                self.size,
+                self.write.load(Ordering::Relaxed),
+                self.read.load(Ordering::Relaxed),
+                self.flags.load(Ordering::Relaxed),
+            );
+        }
+    }
+
     #[repr(C)]
     struct Header {
         id: [u8; 16],
         max_up_channels: usize,
         max_down_channels: usize,
         up_channel: Channel,
+    }
+
+    impl defmt::Format for Header {
+        fn format(&self, fmt: defmt::Formatter<'_>) {
+            use defmt::write;
+
+            write!(
+                fmt,
+                "Header {{
+                    id: ...,
+                    max_up_channels: {},
+                    max_down_channels: {},
+                    up_channel: {},
+                }}",
+                self.max_up_channels,
+                self.max_down_channels,
+                self.up_channel,
+            );
+        }
     }
 
     extern "C" {
@@ -162,6 +204,7 @@ mod ch_flags {
 
             p.store(p.load(Ordering::Relaxed) & !MODE_BLOCK_IF_FULL, Ordering::Relaxed);
             super::warn!("hack'd the channel bit");
+            super::warn!("dump of header: {:?}", _SEGGER_RTT);
         }
     }
 
