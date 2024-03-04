@@ -128,7 +128,7 @@ fn main() -> ! {
 fn process_command(
     mut command: Command<ScsiCommand, Scsi<BulkOnly<bsp::hal::usb::UsbBus, &mut [u8]>>>,
 ) -> Result<(), TransportError<BulkOnlyError>> {
-    info!("Handling: {}", command.kind);
+    //info!("Handling: {}", command.kind);
 
     match command.kind {
         ScsiCommand::TestUnitReady { .. } => {
@@ -214,7 +214,7 @@ fn process_command(
                 // Uncomment this in order to push data in chunks smaller than a USB packet.
                 // let end = min(start + USB_PACKET_SIZE as usize - 1, end);
 
-                info!("Data transfer >>>>>>>> [{}..{}]", start, end);
+                // info!("Data transfer >>>>>>>> [{}..{}]", start, end);
                 let count = command.write_data(&mut STORAGE[start..end])?;
                 STATE.storage_offset += count;
             } else {
