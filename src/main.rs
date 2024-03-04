@@ -25,7 +25,7 @@ use usbd_storage::{
 };
 
 /// Not necessarily `'static`. May reside in some special memory location
-static mut USB_TRANSPORT_BUF: MaybeUninit<[u8; 512]> = MaybeUninit::uninit();
+static mut USB_TRANSPORT_BUF: MaybeUninit<[u8; TRANSPORT_BUF_SIZE]> = MaybeUninit::uninit();
 static mut STORAGE: [u8; (BLOCKS * BLOCK_SIZE) as usize] = [0u8; (BLOCK_SIZE * BLOCKS) as usize];
 
 static mut STATE: State = State {
@@ -35,8 +35,9 @@ static mut STATE: State = State {
     sense_qualifier: None,
 };
 
-const BLOCK_SIZE: u32 = 512;
-const BLOCKS: u32 = 200;
+const TRANSPORT_BUF_SIZE: usize = 512; // TODO: check
+const BLOCK_SIZE: u32 = 4096; // TODO: check
+const BLOCKS: u32 = 102400 / BLOCK_SIZE;
 const USB_PACKET_SIZE: u16 = 64; // 8,16,32,64
 const MAX_LUN: u8 = 0; // max 0x0F
 
