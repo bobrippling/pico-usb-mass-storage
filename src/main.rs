@@ -119,11 +119,16 @@ fn main() -> ! {
             };
         }
 
+        let mut n = 0;
         let _ = scsi.poll(|command| {
+            n += 1;
             if let Err(err) = process_command(command) {
                 error!("{}", err);
             }
         });
+        if n > 1 {
+            warn!("poll called back {} times", n);
+        }
     }
 }
 
@@ -305,8 +310,9 @@ fn process_command(
                 // Uncomment this in order to push data in chunks smaller than a USB packet.
                 // let end = min(start + USB_PACKET_SIZE as usize - 1, end);
 
-                // info!("Data transfer >>>>>>>> [{}..{}]", start, end);
-                let count = command.write_data(&mut STORAGE[start..end])?;
+                info!("Data transfer >>>>>>>> [{}..{}]", start, end);
+
+                let count = command.write_data(&STORAGE[start..end])?;
                 STATE.storage_offset += count;
             } else {
                 command.pass();
@@ -319,12 +325,26 @@ fn process_command(
             if STATE.storage_offset != (len * BLOCK_SIZE) as usize {
                 let start = (BLOCK_SIZE * lba) as usize + STATE.storage_offset;
                 let end = (BLOCK_SIZE * lba) as usize + (BLOCK_SIZE * len) as usize;
-                info!(
-                    "Data transfer <<<<<<<< [{}..{}] (flag={:x})",
-                    start,
-                    end,
-                    ch_flags::get(),
-                );
+
+                //info!("Data transfer <<<<<<<< [XX..YY] (flag=ZZ)"); // ok, no - lag
+                //info!("Data transfer <<<<<<<< [{}..YY] (flag=ZZ)", start as u8);  // ok
+                //info!("Data transfer <<<<<<<< [{}..YY] (flag=ZZ)", start as u16); // ok
+                //info!("Data transfer <<<<<<<< [{}..YY] (flag=ZZ)", start as u32); // lag
+                // info!("Data transfer <<<<<<<< [{}..YY] (flag=ZZ) FILLERRRRRRRRRRRRRRRRRRRRRRRRRRFILLERRRRRRRRRRRRRRRRRRRRRRRRRRFILLERRRRRRRRRRRRRRRRRRRRRRRRRRRRRFILLERRRRRRRRRRRRRRRRRRRRRRRRRRR", start as u8); // lag
+                // info!("Data transfer <<<<<<<< [{}..YY] (flag=ZZ) FILLERRRRRRRRRRRRRRRRRRRRRRRRRRFILLERRRRRRRRRRRRRRRRRRRRRRRRRRFILLERRRRRRRRRRRRRRRRRRRRRRRRR", start as u8); // lag
+                //info!("Data transfer <<<<<<<< [{}..YY] (flag=ZZ) FILLERRRRRRRRRRRRRRRRRRRRRRRRRRFILLERRR", start as u8); // lag
+                // info!("Data transfer <<<<<<<< [{}..YY] (flag=ZZ) FILLERRRRRRRRRRRRR", start as u8); // lag
+                // info!("Data transfer <<<<<<<< [{}..YY] (flag=ZZ) FILLER", start as u8); // lag
+                // info!("Data transfer <<<<<<<< [{}..YY] (flag=ZZ) FI", start as u8); // lag
+                //info!("Data transfer <<<<<<<< [{}..YY] (flag=ZZ)", start as u8); // lag
+
+                // info!(
+                //     "Data transfer <<<<<<<< [{}..{}] (flag={:x})",
+                //     start,
+                //     end,
+                //     ch_flags::get(),
+                // );
+
                 let count = command.read_data(&mut STORAGE[start..end])?;
                 STATE.storage_offset += count;
 
@@ -332,6 +352,14 @@ fn process_command(
                     command.pass();
                     STATE.storage_offset = 0;
                 }
+
+                info!(
+                    "Data transfer <<<<<<<< [{}..{}] (flag={:x})",
+                    start,
+                    end,
+                    ch_flags::get(),
+                );
+
             } else {
                 command.pass();
                 STATE.storage_offset = 0;
