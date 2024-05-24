@@ -68,39 +68,43 @@ impl<'d, D: Driver<'d>, M: RawMutex> BulkOnlyTransport<'d, D, M> {
                 }
             };
             let cbw = CommandBlockWrapper::from_le_bytes(&buf).unwrap();
-            let cb = CommandBlock {
-                bytes: &cbw.block[..cbw.block_len],
-                lun: cbw.lun,
-            };
-            let response = match cbw.direction {
-                DataDirection::Out => {
-                    handler
-                        .data_transfer_from_host(&cb, &mut self.endpoints)
-                        .await
+            let task = async { 'task: {
+                let cb = CommandBlock {
+                    bytes: &cbw.block[..cbw.block_len],
+                    lun: cbw.lun,
+                };
+                let response = match cbw.direction {
+                    DataDirection::Out => {
+                        handler
+                            .data_transfer_from_host(&cb, &mut self.endpoints)
+                            .await
+                    }
+                    DataDirection::In => {
+                        handler
+                            .data_transfer_to_host(&cb, &mut self.endpoints)
+                            .await
+                    }
+                    DataDirection::NotExpected => handler.no_data_transfer(&cb).await,
+                };
+                let status = match response {
+                    Ok(()) => CommandStatus::Passed,
+                    Err(CommandError::Failed | CommandError::Invalid) => CommandStatus::Failed,
+                    Err(CommandError::TransportError(e)) => {
+                        warn!("Transport error processing command: {}", e);
+                        break 'task;
+                    }
+                };
+                let buf = build_csw(&cbw, status);
+                match self.endpoints.write_all(&buf).await {
+                    Ok(_) => {}
+                    Err(e) => {
+                        warn!("Transport error writing CSW: {}", e);
+                        break 'task;
+                    }
                 }
-                DataDirection::In => {
-                    handler
-                        .data_transfer_to_host(&cb, &mut self.endpoints)
-                        .await
-                }
-                DataDirection::NotExpected => handler.no_data_transfer(&cb).await,
-            };
-            let status = match response {
-                Ok(()) => CommandStatus::Passed,
-                Err(CommandError::Failed | CommandError::Invalid) => CommandStatus::Failed,
-                Err(CommandError::TransportError(e)) => {
-                    warn!("Transport error processing command: {}", e);
-                    continue;
-                }
-            };
-            let buf = build_csw(&cbw, status);
-            match self.endpoints.write_all(&buf).await {
-                Ok(_) => {}
-                Err(e) => {
-                    warn!("Transport error writing CSW: {}", e);
-                    continue;
-                }
-            }
+            }};
+
+            // TODO: enqueue `task` in embassy's executor
         }
     }
 }
