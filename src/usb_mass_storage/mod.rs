@@ -53,9 +53,9 @@ impl<'d, 'bd, D: Driver<'d>, BD: BlockDevice, M: RawMutex>
         packet_size: u16,
         max_lun: u8,
         block_device: &'bd mut BD,
-        vendor_identification: impl AsRef<[u8]>,
-        product_identification: impl AsRef<[u8]>,
-        product_revision_level: impl AsRef<[u8]>,
+        vendor_identification: &[u8; 8],
+        product_identification: &[u8; 16],
+        product_revision_level: &[u8; 4],
     ) -> Self {
         let mut func = builder.function(
             CLASS_MASS_STORAGE,
