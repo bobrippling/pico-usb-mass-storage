@@ -151,6 +151,7 @@ impl<'scsi, BD: BlockDevice> bulk_only_transport::Handler for BulkHandler<'scsi,
         cb: &CommandBlock<'_>,
         writer: &mut impl embedded_io_async::Write<Error = TransportError>,
     ) -> Result<(), CommandError> {
+        // TODO: ToHostCommand, etc
         let command = Command::extract_from_cbw(cb).map_err(|e| {
             error!("scsi (to-host) couldn't parse command");
             self.set_sense_from_error(e);
