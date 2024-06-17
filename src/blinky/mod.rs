@@ -36,8 +36,8 @@ impl Blinky {
         dma_ch0: embassy_rp::peripherals::DMA_CH0,
         spawner: Spawner,
     ) -> Self {
-        let fw = include_bytes!("../../cyw43-firmware/43439A0.bin");
-        let clm = include_bytes!("../../cyw43-firmware/43439A0_clm.bin");
+        let fw = todo!();//include_bytes!("../../cyw43-firmware/43439A0.bin");
+        let clm = todo!();//include_bytes!("../../cyw43-firmware/43439A0_clm.bin");
 
         let pwr = Output::new(pin23, Level::Low);
         let cs = Output::new(pin25, Level::High);
