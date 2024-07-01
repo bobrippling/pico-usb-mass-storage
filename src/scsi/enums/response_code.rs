@@ -1,6 +1,8 @@
-use packing::Packed;
+use num_enum::TryFromPrimitive;
 
-#[derive(Clone, Copy, Eq, PartialEq, Debug, Packed, Default)]
+#[repr(u8)]
+#[derive(TryFromPrimitive)]
+#[derive(Clone, Copy, Eq, PartialEq, Debug, Default)]
 pub enum ResponseCode {
     #[default]
     FixedSenseData = 0x70,

@@ -1,7 +1,9 @@
-use packing::Packed;
+use num_enum::TryFromPrimitive;
 
 /// SCSI op codes as defined by SPC-3
-#[derive(Clone, Copy, Eq, PartialEq, Debug, Packed)]
+#[repr(u8)]
+#[derive(TryFromPrimitive)]
+#[derive(Clone, Copy, Eq, PartialEq, Debug)]
 pub enum OpCode {
     TestUnitReady = 0x00,
     RequestSense = 0x03,
