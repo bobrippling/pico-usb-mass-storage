@@ -1,3 +1,5 @@
+use alloc::borrow::Cow;
+
 use crate::bulk_only_transport::CommandBlock;
 use crate::scsi::{commands::*, enums::*, Error};
 
@@ -23,22 +25,21 @@ pub enum Command {
 }
 
 impl Command {
-    pub fn extract_from_cbw(cbw: &CommandBlock) -> Result<Command, Error> {
+    pub fn extract_from_cbw<'c>(cbw: &CommandBlock<'c>) -> Result<Cow<&'c Command>, Error> {
         use num_enum::TryFromPrimitive;
 
         let op_code =
             OpCode::try_from_primitive(cbw.bytes[0]).map_err(|_| Error::UnhandledOpCode)?;
         match op_code {
-            // TODO: return &Command and avoid the copy here
-            OpCode::Read6 => Ok(Command::Read((overlay::<Read6Command>(cbw)?).into())),
-            OpCode::Read10 => Ok(Command::Read((overlay::<Read10Command>(cbw)?).into())),
-            OpCode::Read12 => Ok(Command::Read((overlay::<Read12Command>(cbw)?).into())),
+            OpCode::Read6 => Ok(Cow::Owned(Command::Read((overlay::<Read6Command>(cbw)?).into()))),
+            OpCode::Read10 => Ok(Cow::Owned(Command::Read((overlay::<Read10Command>(cbw)?).into()))),
+            OpCode::Read12 => Ok(Cow::Owned(Command::Read((overlay::<Read12Command>(cbw)?).into()))),
             OpCode::ReadCapacity10 => Ok(Command::ReadCapacity(overlay(cbw)?)),
             OpCode::ReadFormatCapacities => Ok(Command::ReadFormatCapacities(overlay(cbw)?)),
             OpCode::Inquiry => Ok(Command::Inquiry(overlay(cbw)?)),
             OpCode::TestUnitReady => Ok(Command::TestUnitReady(overlay(cbw)?)),
             OpCode::ModeSense6 => Ok(Command::ModeSense(
-                (overlay::<ModeSense6Command>(cbw)?).into(),
+                (overlay::<ModeSense6Command>(cbw)?),
             )),
             OpCode::ModeSense10 => Ok(Command::ModeSense(
                 (overlay::<ModeSense10Command>(cbw)?).into(),
@@ -63,8 +64,8 @@ impl Command {
     }
 }
 
-fn overlay<T: overlay::Overlay + Copy>(cbw: &CommandBlock) -> Result<T, Error> {
-    T::overlay(cbw.bytes).copied().map_err(|e| match e {
+fn overlay<'c, T: overlay::Overlay + Copy>(cbw: &CommandBlock<'c>) -> Result<&'c T, Error> {
+    T::overlay(cbw.bytes).map_err(|e| match e {
         overlay::Error::InsufficientLength => Error::InsufficientDataForCommand,
     })
 }
